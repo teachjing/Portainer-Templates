@@ -1,0 +1,59 @@
+version: "3.2"
+
+services:
+  PowerShell-Universal:
+    image: ironmansoftware/universal
+    environment:
+      - TZ=America/Chicago
+      - Data__RepositoryPath=/home/data/Repository
+      - Data__ConnectionString=/home/data/database.db
+      - UniversalDashboard__AssetsFolder=/home/data/UniversalDashboard 
+      - Logging__Path=/home/data/logs/log.txt
+
+    volumes:
+      #- /data/config/powershell-universal/data:/home/data
+      - /data/config/powershell-universal/logs:/home/data/logs
+      - /data/config/powershell-universal/data/database.db:/home/data/database.db
+      - /data/config/powershell-universal/data/repos:/home/data/Repository
+      - /data/config/powershell-universal/data/dashboard:/home/data/UniversalDashboard
+      
+      ## Custom appsettings.json file
+      #- /data/config/powershell-universal/data/appsettings.json:/home/Universal/appsettings.json
+      
+    deploy:
+      replicas: 1
+      labels:
+        # traefik
+        - traefik.enable=true
+        - traefik.docker.network=traefik_public
+
+        # traefikv2
+        - traefik.http.routers.powershell.rule=Host(`powershell.skyserver.cc`)
+        - traefik.http.routers.powershell.entryPoints=websecure
+        - traefik.http.services.powershell.loadbalancer.server.port=5000
+        - traefik.http.routers.powershell.middlewares=forward-auth # this line enforces traefik-forward-auth
+        
+        - traefik.http.routers.powershell-api.rule=Host(`powershell.skyserver.cc`) && PathPrefix(`/api`)
+        - traefik.http.routers.powershell-api.entryPoints=websecure
+        
+        - traefik.http.routers.powershell-public.rule=Host(`powershell.skyserver.cc`) && PathPrefix(`/public`)
+        - traefik.http.routers.powershell-public.entryPoints=websecure
+        
+      restart_policy:
+        condition: any
+        delay: 60s
+        window: 300s
+
+    logging:
+      driver: 'json-file'
+      options:
+        max-file: '5'
+        max-size: '10m'
+
+    networks:
+      - traefik_public
+
+networks:
+  traefik_public:
+    external: true
+
